@@ -109,12 +109,12 @@ def train(log_dir, args):
           saver.save(sess, checkpoint_path, global_step=step)
           log('Saving audio and alignment...')
           input_seq, spectrogram, alignment = sess.run([
-            model.inputs[0], model.linear_outputs[0], model.alignments[0]])
+          model.inputs[0], model.linear_outputs[0], model.alignments[0]])
           waveform = audio.inv_spectrogram(spectrogram.T)
           audio.save_wav(waveform, os.path.join(log_dir, 'step-%d-audio.wav' % step))
           plot.plot_alignment(alignment, os.path.join(log_dir, 'step-%d-align.png' % step),
             info='%s, %s, %s, step=%d, loss=%.5f' % (args.model, commit, time_string(), step, loss))
-          log('Input: %s' % sequence_to_text(input_seq))
+          #log('Input: %s' % sequence_to_text(input_seq))
 
     except Exception as e:
       log('Exiting due to exception: %s' % e, slack=True)
@@ -124,7 +124,7 @@ def train(log_dir, args):
 
 def main():
   parser = argparse.ArgumentParser()
-  parser.add_argument('--base_dir', default=os.path.expanduser('~/tacotron'))
+  parser.add_argument('--base_dir', default=os.path.expanduser('C:\\Users\\blcdec\\project\\speech_style_convert\\tacotron_imu'))
   parser.add_argument('--input', default='training/train.txt')
   parser.add_argument('--model', default='tacotron')
   parser.add_argument('--name', help='Name of the run. Used for logging. Defaults to model name.')

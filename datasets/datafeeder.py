@@ -34,14 +34,14 @@ class DataFeeder(threading.Thread):
     # Create placeholders for inputs and targets. Don't specify batch size because we want to
     # be able to feed different sized batches at eval time.
     self._placeholders = [
-      tf.placeholder(tf.int32, [None, None], 'inputs'),
+      tf.placeholder(tf.float32, [None, None, 1025], 'inputs'),
       tf.placeholder(tf.int32, [None], 'input_lengths'),
       tf.placeholder(tf.float32, [None, None, hparams.num_mels], 'mel_targets'),
       tf.placeholder(tf.float32, [None, None, hparams.num_freq], 'linear_targets')
     ]
 
     # Create queue for buffering data:
-    queue = tf.FIFOQueue(8, [tf.int32, tf.int32, tf.float32, tf.float32], name='input_queue')
+    queue = tf.FIFOQueue(8, [tf.float32, tf.int32, tf.float32, tf.float32], name='input_queue')
     self._enqueue_op = queue.enqueue(self._placeholders)
     self.inputs, self.input_lengths, self.mel_targets, self.linear_targets = queue.dequeue()
     self.inputs.set_shape(self._placeholders[0].shape)
@@ -104,11 +104,7 @@ class DataFeeder(threading.Thread):
     meta = self._metadata[self._offset]
     self._offset += 1
 
-    text = meta[3]
-    if self._cmudict and random.random() < _p_cmudict:
-      text = ' '.join([self._maybe_get_arpabet(word) for word in text.split(' ')])
-
-    input_data = np.asarray(text_to_sequence(text, self._cleaner_names), dtype=np.int32)
+    input_data = np.load(os.path.join(self._datadir,meta[3]))
     linear_target = np.load(os.path.join(self._datadir, meta[0]))
     mel_target = np.load(os.path.join(self._datadir, meta[1]))
     return (input_data, mel_target, linear_target, len(linear_target))
@@ -129,6 +125,7 @@ def _prepare_batch(batch, outputs_per_step):
 
 
 def _prepare_inputs(inputs):
+
   max_len = max((len(x) for x in inputs))
   return np.stack([_pad_input(x, max_len) for x in inputs])
 
@@ -139,7 +136,7 @@ def _prepare_targets(targets, alignment):
 
 
 def _pad_input(x, length):
-  return np.pad(x, (0, length - x.shape[0]), mode='constant', constant_values=_pad)
+  return np.pad(x, [(0, length - x.shape[0]),(0,0)], mode='constant', constant_values=_pad)
 
 
 def _pad_target(t, length):

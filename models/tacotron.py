@@ -37,13 +37,11 @@ class Tacotron():
       hp = self._hparams
 
       # Embeddings
-      embedding_table = tf.get_variable(
-        'embedding', [len(symbols), hp.embed_depth], dtype=tf.float32,
-        initializer=tf.truncated_normal_initializer(stddev=0.5))
-      embedded_inputs = tf.nn.embedding_lookup(embedding_table, inputs)          # [N, T_in, embed_depth=256]
+
+     # [N, T_in, embed_depth=256]
 
       # Encoder
-      prenet_outputs = prenet(embedded_inputs, is_training, hp.prenet_depths)    # [N, T_in, prenet_depths[-1]=128]
+      prenet_outputs = prenet(inputs, is_training, hp.prenet_depths)    # [N, T_in, prenet_depths[-1]=128]
       encoder_outputs = encoder_cbhg(prenet_outputs, input_lengths, is_training, # [N, T_in, encoder_depth=256]
                                      hp.encoder_depth)
 
@@ -96,7 +94,7 @@ class Tacotron():
       self.mel_targets = mel_targets
       self.linear_targets = linear_targets
       log('Initialized Tacotron model. Dimensions: ')
-      log('  embedding:               %d' % embedded_inputs.shape[-1])
+
       log('  prenet out:              %d' % prenet_outputs.shape[-1])
       log('  encoder out:             %d' % encoder_outputs.shape[-1])
       log('  attention out:           %d' % attention_cell.output_size)

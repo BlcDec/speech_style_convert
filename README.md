@@ -84,7 +84,7 @@ Pull requests are welcome!
    ```
    tacotron
      |- Blizzard2012
-         |- ATrampAbroad
+         |- ATrampAbroad 
          |   |- sentence_index.txt
          |   |- lab
          |   |- wav
