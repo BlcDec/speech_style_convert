@@ -4,7 +4,7 @@ from tensorflow.contrib.seq2seq import BasicDecoder, BahdanauAttention, Attentio
 from text.symbols import symbols
 from util.infolog import log
 from .helpers import TacoTestHelper, TacoTrainingHelper
-from .modules import encoder_cbhg, post_cbhg, prenet
+from .modules import encoder_cbhg, post_cbhg, prenet, encoder_cbhg_jp
 from .rnn_wrappers import DecoderPrenetWrapper, ConcatOutputAndAttentionWrapper
 
 
@@ -14,7 +14,7 @@ class Tacotron():
     self._hparams = hparams
 
 
-  def initialize(self, inputs, input_lengths, mel_targets=None, linear_targets=None):
+  def initialize(self, inputs, inputs_jp, input_lengths, input_jp_lengths, mel_targets=None, linear_targets=None):
     '''Initializes the model for inference.
 
     Sets "mel_outputs", "linear_outputs", and "alignments" fields.
@@ -41,10 +41,15 @@ class Tacotron():
      # [N, T_in, embed_depth=256]
 
       # Encoder
-      prenet_outputs = prenet(inputs, is_training, hp.prenet_depths)    # [N, T_in, prenet_depths[-1]=128]
-      encoder_outputs = encoder_cbhg(prenet_outputs, input_lengths, is_training, # [N, T_in, encoder_depth=256]
+      #prenet_outputs = prenet(inputs, is_training, hp.prenet_depths)    # [N, T_in, prenet_depths[-1]=128]
+      encoder_outputs = encoder_cbhg(inputs, input_lengths, is_training, # [N, T_in, encoder_depth=256]
                                      hp.encoder_depth)
-
+      # print(inputs_jp.eval)
+      # print(inputs.eval)
+      # print(input_jp_lengths.eval)
+      # print(input_lengths.eval)
+      encoder_outputs_jp = encoder_cbhg_jp(inputs_jp, input_lengths, is_training,  # [N, T_in, encoder_depth=256]
+                                        hp.encoder_depth)
       # Attention
       attention_cell = AttentionWrapper(
         DecoderPrenetWrapper(GRUCell(hp.attention_depth), is_training, hp.prenet_depths),
@@ -55,12 +60,34 @@ class Tacotron():
       # Concatenate attention context vector and RNN cell output into a 2*attention_depth=512D vector.
       concat_cell = ConcatOutputAndAttentionWrapper(attention_cell)              # [N, T_in, 2*attention_depth=512]
 
+
+
+      # Attention JP
+      attention_cell_jp = AttentionWrapper(
+        DecoderPrenetWrapper(GRUCell(hp.attention_depth), is_training, hp.prenet_depths),
+        BahdanauAttention(hp.attention_depth, encoder_outputs_jp),
+        alignment_history=True,
+        output_attention=False)                                                   # [N, T_in, attention_depth=256]
+
+      # Concatenate attention context vector and RNN cell output into a 2*attention_depth=512D vector.
+      concat_cell_jp = ConcatOutputAndAttentionWrapper(attention_cell_jp)  # [N, T_in, 2*attention_depth=512]
+      # 以上复制一份，对应修改为日语特征输入，记新的	concat_cell为concat_cell_jp，新增一行连接两个输出
+
+      # # Concatenate attention context vector and RNN cell output into a 2*attention_depth=512D vector.
+      print(type(concat_cell))
+      print(concat_cell_jp.output_size)
+      encoder_out = tf.concat([concat_cell, concat_cell_jp], axis=-1)
+
+
+      #connect chinese_outputs and japanese_outputs
+
+
       # Decoder (layers specified bottom to top):
       decoder_cell = MultiRNNCell([
-          OutputProjectionWrapper(concat_cell, hp.decoder_depth),
-          ResidualWrapper(GRUCell(hp.decoder_depth)),
-          ResidualWrapper(GRUCell(hp.decoder_depth))
-        ], state_is_tuple=True)                                                  # [N, T_in, decoder_depth=256]
+        OutputProjectionWrapper(encoder_out, hp.decoder_depth),
+        ResidualWrapper(GRUCell(hp.decoder_depth)),
+        ResidualWrapper(GRUCell(hp.decoder_depth))
+      ], state_is_tuple=True)# [N, T_in, decoder_depth=256]
 
       # Project onto r mel spectrograms (predict r outputs at each RNN step):
       output_cell = OutputProjectionWrapper(decoder_cell, hp.num_mels * hp.outputs_per_step)
@@ -87,7 +114,9 @@ class Tacotron():
       alignments = tf.transpose(final_decoder_state[0].alignment_history.stack(), [1, 2, 0])
 
       self.inputs = inputs
+      self.inputs_jp = inputs_jp
       self.input_lengths = input_lengths
+      self.input_jp_lengths = input_jp_lengths
       self.mel_outputs = mel_outputs
       self.linear_outputs = linear_outputs
       self.alignments = alignments
@@ -95,10 +124,13 @@ class Tacotron():
       self.linear_targets = linear_targets
       log('Initialized Tacotron model. Dimensions: ')
 
-      log('  prenet out:              %d' % prenet_outputs.shape[-1])
+      #log('  prenet out:              %d' % prenet_outputs.shape[-1])
       log('  encoder out:             %d' % encoder_outputs.shape[-1])
+      log('  encoder out jp:             %d' % encoder_outputs_jp.shape[-1])
       log('  attention out:           %d' % attention_cell.output_size)
+      log('  attention out jp:           %d' % attention_cell_jp.output_size)
       log('  concat attn & out:       %d' % concat_cell.output_size)
+      log('  concat attn & out jp:       %d' % concat_cell_jp.output_size)
       log('  decoder cell out:        %d' % decoder_cell.output_size)
       log('  decoder out (%d frames):  %d' % (hp.outputs_per_step, decoder_outputs.shape[-1]))
       log('  decoder out (1 frame):   %d' % mel_outputs.shape[-1])

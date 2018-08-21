@@ -23,6 +23,16 @@ def encoder_cbhg(inputs, input_lengths, is_training, depth):
     projections=[128, input_channels],
     depth=depth)
 
+def encoder_cbhg_jp(inputs, input_lengths, is_training, depth):
+  input_channels = inputs.get_shape()[2]
+  return cbhg_jp(
+    inputs,
+    input_lengths,
+    is_training,
+    scope='encoder_cbhg_jp',
+    K=16,
+    projections=[128, input_channels],
+    depth=depth)
 
 def post_cbhg(inputs, input_dim, is_training, depth):
   return cbhg(
@@ -36,6 +46,50 @@ def post_cbhg(inputs, input_dim, is_training, depth):
 
 
 def cbhg(inputs, input_lengths, is_training, scope, K, projections, depth):
+  with tf.variable_scope(scope):
+    with tf.variable_scope('conv_bank'):
+      # Convolution bank: concatenate on the last axis to stack channels from all convolutions
+      conv_outputs = tf.concat(
+        [conv1d(inputs, k, 128, tf.nn.relu, is_training, 'conv1d_%d' % k) for k in range(1, K+1)],
+        axis=-1
+      )
+
+    # Maxpooling:
+    maxpool_output = tf.layers.max_pooling1d(
+      conv_outputs,
+      pool_size=2,
+      strides=1,
+      padding='same')
+
+    # Two projection layers:
+    proj1_output = conv1d(maxpool_output, 3, projections[0], tf.nn.relu, is_training, 'proj_1')
+    proj2_output = conv1d(proj1_output, 3, projections[1], None, is_training, 'proj_2')
+
+    # Residual connection:
+    highway_input = proj2_output + inputs
+
+    half_depth = depth // 2
+    assert half_depth*2 == depth, 'encoder and postnet depths must be even.'
+
+    # Handle dimensionality mismatch:
+    if highway_input.shape[2] != half_depth:
+      highway_input = tf.layers.dense(highway_input, half_depth)
+
+    # 4-layer HighwayNet:
+    for i in range(4):
+      highway_input = highwaynet(highway_input, 'highway_%d' % (i+1), half_depth)
+    rnn_input = highway_input
+
+    # Bidirectional RNN
+    outputs, states = tf.nn.bidirectional_dynamic_rnn(
+      GRUCell(half_depth),
+      GRUCell(half_depth),
+      rnn_input,
+      sequence_length=input_lengths,
+      dtype=tf.float32)
+    return tf.concat(outputs, axis=2)  # Concat forward and backward
+
+def cbhg_jp(inputs, input_lengths, is_training, scope, K, projections, depth):
   with tf.variable_scope(scope):
     with tf.variable_scope('conv_bank'):
       # Convolution bank: concatenate on the last axis to stack channels from all convolutions

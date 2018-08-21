@@ -15,36 +15,43 @@ def test():
 
 
 
-def write_csv(path_in,path_target):
+def write_csv(in_cd_dir, in_jd_dir,in_cg_dir):
     ''' 获取指定目录下的所有指定后缀的文件名 '''
 
-    f_list_in = os.listdir(path_in)
-    f_list_target =os.listdir(path_target)
+    f_list_cd = os.listdir(in_cd_dir)
+    f_list_jd =os.listdir(in_jd_dir)
+    f_list_cg=os.listdir(in_cg_dir)
     # print f_list
-    list_in=[]
-    list_target=[]
-    for i in f_list_in:
+    list_cd=[]
+    list_jd=[]
+    list_cg=[]
+    for i in f_list_cd:
         # os.path.splitext():分离文件名与扩展名
         if os.path.splitext(i)[1] == '.wav':
-            list_in.append(os.path.splitext(i)[0])
+            list_cd.append(os.path.splitext(i)[0])
 
-    for i in f_list_target:
+    for i in f_list_jd:
         # os.path.splitext():分离文件名与扩展名
         if os.path.splitext(i)[1] == '.wav':
-            list_target.append(os.path.splitext(i)[0])
-    print(list_in)
+            list_jd.append(os.path.splitext(i)[0])
 
-    print(list_target)
-    metadata = open('C:\\Users\\blcdec\\project\\speech_style_convert\\tacotron_imu\\metadata.csv', 'w', newline='')
+    for i in f_list_cg:
+        if os.path.splitext(i)[1]=='.wav':
+            list_cg.append(os.path.splitext(i)[0])
+    print(list_cd)
+    print(list_jd)
+    print(list_cg)
+    metadata = open('C:\\Users\\blcdec\\project\\speech_style_convert\\tacotron_imu\\ImuSpeech-1.0\\metadata.csv', 'w', newline='')
     w = csv.writer(metadata)
-    for i in range(0,len(list_in)):
-        w.writerow([list_target[i], list_in[i]])
+    for i in range(0,len(list_cd)):
+        w.writerow([list_cd[i], list_jd[i],list_cg[i]])
     metadata.close()
 
 
 
 if __name__ == '__main__':
-    in_dir = 'C:\\Users\\blcdec\\project\\speech_style_convert\\tacotron_imu\\chinese_dubbing'
-    tar_dir = 'C:\\Users\\blcdec\\project\\speech_style_convert\\tacotron_imu\\cinese_generage'
-    # write_csv(in_dir, tar_dir)
-    test()
+    in_cd_dir = 'C:\\Users\\blcdec\\project\\speech_style_convert\\tacotron_imu\\ImuSpeech-1.0\\chinese_dubbing'
+    in_jd_dir = 'C:\\Users\\blcdec\\project\\speech_style_convert\\tacotron_imu\\ImuSpeech-1.0\\japanese_dubbing'
+    in_cg_dir = 'C:\\Users\\blcdec\\project\\speech_style_convert\\tacotron_imu\\ImuSpeech-1.0\\chinese_generate'
+    write_csv(in_cd_dir, in_jd_dir,in_cg_dir)
+    #test()

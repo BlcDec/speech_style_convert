@@ -10,7 +10,7 @@ hparams = tf.contrib.training.HParams(
   # Audio:
   num_mels=80,
   num_freq=1025,
-  sample_rate=20000,
+  sample_rate=16000,
   frame_length_ms=50,
   frame_shift_ms=12.5,
   preemphasis=0.97,
@@ -18,7 +18,7 @@ hparams = tf.contrib.training.HParams(
   ref_level_db=20,
 
   # Model:
-  outputs_per_step=5,
+  outputs_per_step=1,
   embed_depth=256,
   prenet_depths=[256, 128],
   encoder_depth=256,

@@ -13,14 +13,15 @@ def build_from_path(in_dir, out_dir, num_workers=1, tqdm=lambda x: x):
   with open(os.path.join(in_dir, 'metadata.csv'), encoding='utf-8') as f:
       for line in f:
           parts = line.strip().split(',')
-          tar_path = os.path.join(in_dir, 'chinese_dubbing', '%s.wav' % parts[0])
-          in_path = os.path.join(in_dir, 'chinese_generate', '%s.wav' % parts[1])
-          futures.append(executor.submit(partial(_process_utterance, out_dir, index, tar_path, in_path)))
+          tar_cd_path = os.path.join(in_dir, 'chinese_dubbing', '%s.wav' % parts[0])
+          in_jd_path=os.path.join(in_dir,   'japanese_dubbing', '%s.wav' % parts[1])
+          in_cg_path = os.path.join(in_dir,     'chinese_generate', '%s.wav' % parts[2])
+          futures.append(executor.submit(partial(_process_utterance, out_dir, index, tar_cd_path,in_jd_path, in_cg_path)))
           index += 1
   return [future.result() for future in tqdm(futures)]
 
 
-def _process_utterance(out_dir, index, tar_path, in_path):
+def _process_utterance(out_dir, index, tar_cd_path,in_jd_path, in_cg_path):
   '''Preprocesses a single utterance audio/text pair.
 
   This writes the mel and linear scale spectrograms to disk and returns a tuple to write
@@ -37,26 +38,40 @@ def _process_utterance(out_dir, index, tar_path, in_path):
   '''
 
   # Load the audio to a numpy array:
-  tar_wav = audio.load_wav(tar_path)
+  tar_cd_wav = audio.load_wav(tar_cd_path)
 
   # Compute the linear-scale spectrogram from the wav:
-  tar_spectrogram = audio.spectrogram(tar_wav).astype(np.float32)
-  n_frames = tar_spectrogram.shape[1]
+  tar_cd_spectrogram = audio.spectrogram(tar_cd_wav).astype(np.float32)
+  n_frames = tar_cd_spectrogram.shape[1]
 
   # Compute a mel-scale spectrogram from the wav:
-  tar_mel_spectrogram = audio.melspectrogram(tar_wav).astype(np.float32)
-  in_wav = audio.load_wav(in_path)
+  tar_cd_mel_spectrogram = audio.melspectrogram(tar_cd_wav).astype(np.float32)
+
+
+  in_jd_wav = audio.load_wav(in_jd_path)
+  in_cg_wav = audio.load_wav(in_cg_path)
 
   # Compute the linear-scale spectrogram from the wav:
-  in_spectrogram = audio.spectrogram(in_wav).astype(np.float32)
-  # Write the spectrograms to disk:
-  in_spectrogram_filename = 'Imuspeech-in_spec-%05d.npy' % index
-  tar_spectrogram_filename = 'Imuspeech-tar_spec-%05d.npy' % index
-  tar_mel_filename = 'Imuspeech-tar_mel-%05d.npy' % index
+  # Beacase of use voice traing,needless spectrogram.
+  #in_spectrogram = audio.spectrogram(in_cg_wav).astype(np.float32)
 
-  np.save(os.path.join(out_dir, tar_spectrogram_filename), tar_spectrogram.T, allow_pickle=False)
-  np.save(os.path.join(out_dir, tar_mel_filename), tar_mel_spectrogram.T, allow_pickle=False)
-  np.save(os.path.join(out_dir, in_spectrogram_filename), in_spectrogram.T, allow_pickle=False)
+  # Compute the mel-scale spectrogram from the wav:
+  in_jd_mel_spectrogram = audio.melspectrogram(in_jd_wav).astype(np.float32)
+  in_cg_mel_spectrogram = audio.melspectrogram(in_cg_wav).astype(np.float32)
+
+
+  # Write the spectrograms to disk:
+  in_jd_mel_spectrogram_filename = 'Imuspeech-in_jd_mel_spec-%05d.npy' % index
+  in_cg_mel_spectrogram_filename = 'Imuspeech-in_cg_mel_spec-%05d.npy' % index
+  tar_cd_spectrogram_filename    = 'Imuspeech-tar_cd_spec-%05d.npy'    % index
+  tar_cd_mel_filename            = 'Imuspeech-tar_cd_mel-%05d.npy'     % index
+
+  np.save(os.path.join(out_dir, in_jd_mel_spectrogram_filename), in_jd_mel_spectrogram.T, allow_pickle=False)
+  np.save(os.path.join(out_dir, in_cg_mel_spectrogram_filename), in_cg_mel_spectrogram.T, allow_pickle=False)
+  np.save(os.path.join(out_dir, tar_cd_spectrogram_filename), tar_cd_spectrogram.T, allow_pickle=False)
+  np.save(os.path.join(out_dir, tar_cd_mel_filename), tar_cd_mel_spectrogram.T, allow_pickle=False)
+
+
 
   # Return a tuple describing this training example:
-  return (tar_spectrogram_filename, tar_mel_filename, n_frames, in_spectrogram_filename)
+  return (tar_cd_spectrogram_filename, tar_cd_mel_filename, n_frames, in_jd_mel_spectrogram_filename,in_cg_mel_spectrogram_filename)

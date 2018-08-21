@@ -54,3 +54,5 @@ class ConcatOutputAndAttentionWrapper(RNNCell):
 
   def zero_state(self, batch_size, dtype):
     return self._cell.zero_state(batch_size, dtype)
+
+
